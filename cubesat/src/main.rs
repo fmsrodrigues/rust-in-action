@@ -1,4 +1,5 @@
-#![allow(unused_variables)]
+use std::cell::RefCell;
+use std::rc::Rc;
 
 #[derive(Debug)]
 struct Message {
@@ -39,9 +40,12 @@ impl CubeSat {
     }
 }
 
-struct GoundStation {}
+#[derive(Debug)]
+struct GroundStation {
+    radio_freq: f64, // Mhz
+}
 
-impl GoundStation {
+impl GroundStation {
     fn send(&self, mailbox: &mut Mailbox, msg: Message) {
         mailbox.post(msg);
     }
@@ -58,23 +62,32 @@ fn fetch_sat_ids() -> Vec<u64> {
 fn main() {
     let mut mail = Mailbox { messages: vec![] };
 
-    let base = GoundStation {};
+    let base = Rc::new(RefCell::new(GroundStation { radio_freq: 87.65 }));
+    println!("base: {:?}", base);
+
+    {
+        let mut base_2 = base.borrow_mut();
+        base_2.radio_freq -= 12.34;
+        println!("base_2: {:?}", base_2);
+    }
 
     let sat_ids = fetch_sat_ids();
     for sat_id in sat_ids {
-        let sat = base.connect(sat_id);
+        let sat = base.borrow().connect(sat_id);
         let msg = Message {
             to: sat_id,
             content: String::from("Hello!"),
         };
-        base.send(&mut mail, msg);
+        base.borrow().send(&mut mail, msg);
     }
 
     let sat_ids = fetch_sat_ids();
     for sat_id in sat_ids {
-        let sat = base.connect(sat_id);
+        let sat = base.borrow().connect(sat_id);
 
         let msg = sat.recv(&mut mail);
         println!("{:?}: {:?}", sat, msg);
     }
+
+    println!("base: {:?}", base);
 }
